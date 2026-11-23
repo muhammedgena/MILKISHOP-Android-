@@ -1,4 +1,4 @@
-name: Build MILKISHOP APK
+name: Build MILKISHOP Release APK
 
 on:
   workflow_dispatch:
@@ -22,7 +22,6 @@ jobs:
 
       - name: Configure Android SDK
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
           SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
           if [ -z "$SDKMANAGER" ]; then
             echo "sdkmanager not found"
@@ -37,11 +36,32 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
-        run: gradle assembleDebug
+      - name: Restore release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MILKISHOP_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/milkishop-release.jks"
+          test -s "$RUNNER_TEMP/milkishop-release.jks"
 
-      - name: Upload APK
+      - name: Build signed Release APK
+        env:
+          MILKISHOP_KEYSTORE_FILE: ${{ runner.temp }}/milkishop-release.jks
+          MILKISHOP_KEYSTORE_PASSWORD: ${{ secrets.MILKISHOP_KEYSTORE_PASSWORD }}
+          MILKISHOP_KEY_ALIAS: ${{ secrets.MILKISHOP_KEY_ALIAS }}
+        run: |
+          test -n "$MILKISHOP_KEYSTORE_PASSWORD"
+          test -n "$MILKISHOP_KEY_ALIAS"
+          gradle assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: MILKISHOP-Android-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MILKISHOP-Release-APK-v1.1
+          path: app/build/outputs/apk/release/app-release.apk

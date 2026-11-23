@@ -1,0 +1,5 @@
+keystore/
+*.jks
+*.keystore
+local.properties
+keystore-base64.txt
