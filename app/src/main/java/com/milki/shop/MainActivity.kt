@@ -1,4 +1,3 @@
-
 package com.milki.shop
 
 import android.annotation.SuppressLint
@@ -17,8 +16,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.statusBarColor = Color.rgb(7, 88, 61)
-        window.navigationBarColor = Color.rgb(7, 88, 61)
+        window.statusBarColor = Color.rgb(30, 30, 30)
+        window.navigationBarColor = Color.rgb(30, 30, 30)
 
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
@@ -27,41 +26,7 @@ class MainActivity : Activity() {
         webView.webViewClient = WebViewClient()
         webView.webChromeClient = WebChromeClient()
 
-        val root = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-        }
-
-        val adminButton = android.widget.Button(this).apply {
-            text = "Admin Dashboard"
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(7, 88, 61))
-            setOnClickListener {
-                webView.loadUrl(
-                    "https://milki-marketplace-admin-lxabmdm3e-vercel-c7d7.vercel.app/"
-                )
-            }
-        }
-
-        root.addView(
-            adminButton,
-            android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                (56 * resources.displayMetrics.density).toInt()
-            )
-        )
-
-        root.addView(
-            webView,
-            android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        setContentView(root)
+        setContentView(webView)
 
         if (savedInstanceState == null) {
             webView.loadUrl("https://milki-marketplace-admin.vercel.app/")
