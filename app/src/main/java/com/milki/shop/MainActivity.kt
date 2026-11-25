@@ -2,9 +2,13 @@ package com.milki.shop
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
@@ -22,9 +26,9 @@ import android.widget.ProgressBar
 import android.widget.TextView
 
 class MainActivity : Activity() {
-
     companion object {
         private const val HOME_URL = "https://milki-marketplace-admin.vercel.app/"
+        private const val TRUSTED_HOST = "milki-marketplace-admin.vercel.app"
     }
 
     private lateinit var webView: WebView
@@ -32,18 +36,15 @@ class MainActivity : Activity() {
     private lateinit var errorPanel: LinearLayout
     private var mainFrameFailed = false
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         window.statusBarColor = Color.rgb(7, 88, 61)
         window.navigationBarColor = Color.rgb(7, 88, 61)
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
-
         webView = WebView(this).apply {
             setBackgroundColor(Color.WHITE)
             settings.javaScriptEnabled = true
@@ -53,7 +54,9 @@ class MainActivity : Activity() {
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.safeBrowsingEnabled = true
             CookieManager.getInstance().setAcceptCookie(true)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
             webViewClient = createWebViewClient()
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -69,7 +72,6 @@ class MainActivity : Activity() {
             max = 100
             progress = 0
         }
-
         errorPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -77,7 +79,6 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.WHITE)
             visibility = View.GONE
         }
-
         val title = TextView(this).apply {
             text = "MILKISHOP"
             setTextColor(Color.rgb(7, 88, 61))
@@ -101,21 +102,27 @@ class MainActivity : Activity() {
         errorPanel.addView(title, LinearLayout.LayoutParams(-1, -2))
         errorPanel.addView(message, LinearLayout.LayoutParams(-1, -2))
         errorPanel.addView(retryButton, LinearLayout.LayoutParams(-1, -2))
-
         root.addView(webView, FrameLayout.LayoutParams(-1, -1))
         root.addView(progressBar, FrameLayout.LayoutParams(-1, dp(3), Gravity.TOP))
         root.addView(errorPanel, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
 
-        if (savedInstanceState != null) {
-            val restored = webView.restoreState(savedInstanceState)
-            if (restored == null) loadHome()
-        } else {
-            loadHome()
-        }
+        if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) loadHome()
     }
 
     private fun createWebViewClient() = object : WebViewClient() {
+        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            val uri = request?.url ?: return true
+            if (uri.scheme.equals("https", true) && uri.host.equals(TRUSTED_HOST, true)) return false
+            if (uri.scheme.equals("https", true) || uri.scheme.equals("mailto", true) ||
+                uri.scheme.equals("tel", true)) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, uri))
+                } catch (_: ActivityNotFoundException) { }
+            }
+            return true
+        }
+
         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
             mainFrameFailed = false
             errorPanel.visibility = View.GONE
@@ -129,31 +136,20 @@ class MainActivity : Activity() {
             }
         }
 
-        override fun onReceivedError(
-            view: WebView?,
-            request: WebResourceRequest?,
-            error: android.webkit.WebResourceError?
-        ) {
+        override fun onReceivedError(view: WebView?, request: WebResourceRequest?,
+            error: android.webkit.WebResourceError?) {
             super.onReceivedError(view, request, error)
             if (request?.isForMainFrame == true) showConnectionError()
         }
 
-        override fun onReceivedHttpError(
-            view: WebView?,
-            request: WebResourceRequest?,
-            errorResponse: android.webkit.WebResourceResponse?
-        ) {
+        override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?,
+            errorResponse: android.webkit.WebResourceResponse?) {
             super.onReceivedHttpError(view, request, errorResponse)
-            if (request?.isForMainFrame == true &&
-                (errorResponse?.statusCode ?: 200) >= 400
-            ) showConnectionError()
+            if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 200) >= 400)
+                showConnectionError()
         }
 
-        override fun onReceivedSslError(
-            view: WebView?,
-            handler: SslErrorHandler?,
-            error: SslError?
-        ) {
+        override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
             handler?.cancel()
             showConnectionError()
         }
@@ -179,11 +175,7 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
     override fun onDestroy() {
