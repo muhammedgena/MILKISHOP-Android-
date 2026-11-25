@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var errorPanel: LinearLayout
+    private var mainFrameFailed = false
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
@@ -58,7 +59,7 @@ class MainActivity : Activity() {
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                     progressBar.progress = newProgress
                     progressBar.visibility =
-                        if (newProgress in 1..99) View.VISIBLE else View.GONE
+                        if (newProgress in 1..99 && !mainFrameFailed) View.VISIBLE else View.GONE
                 }
             }
         }
@@ -116,13 +117,16 @@ class MainActivity : Activity() {
 
     private fun createWebViewClient() = object : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+            mainFrameFailed = false
             errorPanel.visibility = View.GONE
             progressBar.visibility = View.VISIBLE
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
-            progressBar.visibility = View.GONE
-            errorPanel.visibility = View.GONE
+            if (!mainFrameFailed) {
+                progressBar.visibility = View.GONE
+                errorPanel.visibility = View.GONE
+            }
         }
 
         override fun onReceivedError(
@@ -156,12 +160,14 @@ class MainActivity : Activity() {
     }
 
     private fun loadHome() {
+        mainFrameFailed = false
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
         webView.loadUrl(HOME_URL)
     }
 
     private fun showConnectionError() {
+        mainFrameFailed = true
         progressBar.visibility = View.GONE
         errorPanel.visibility = View.VISIBLE
     }
