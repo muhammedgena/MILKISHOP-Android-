@@ -20,6 +20,11 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Seller and admin views display the saved rejection reason.
 
 ## Delivery
+- [ ] In non-production, apply the delivery-worker atomic-transition migration and verify it is idempotent.
+- [ ] Delivery-worker RPC rejects unauthenticated users, inactive profiles, unassigned jobs, pickup orders, and orders without a verified customer receipt.
+- [ ] Delivery-worker RPC rejects delivered-before-picked-up, repeated transitions, and invalid order states.
+- [ ] Pickup and delivery completion update assignment and order together; force a failure and verify neither side is partially changed.
+- [ ] Delivery-worker cancellation is allowed only before pickup and leaves the paid order available for admin reassignment.
 - [ ] Awaiting-payment delivery order cannot receive a delivery assignment.
 - [ ] An order with no verified customer receipt cannot receive a delivery assignment.
 - [ ] An order with a verified customer receipt can receive a delivery assignment.
