@@ -127,7 +127,7 @@ begin
     raise exception 'Admin profile not found' using errcode = 'P0002';
   end if;
 
-  if p_status not in ('picked_up','delivered') then
+  if p_status is null or p_status not in ('picked_up','delivered') then
     raise exception 'Status must be picked_up or delivered' using errcode = '22023';
   end if;
 
