@@ -114,15 +114,20 @@ async function loadAdminOrders(){
 async function saveDeliveryAssignment(orderId){
  if(!user||String(user.email||'').toLowerCase()!=='mohammedgena@gmail.com')return;
  const name=$('dpn-'+orderId).value.trim(),phone=$('dpp-'+orderId).value.trim(),fee=Number($('dpf-'+orderId).value||0);
- if(!name||!phone||!Number.isFinite(fee)||fee<0){alert('Enter delivery name, phone, and a valid fee.');return}
+ if(!name||phone.length<5||phone.length>30||!Number.isInteger(fee)||fee<0){alert('Enter a delivery name, a valid phone number (5–30 characters), and a whole-number fee of zero or more.');return}
  const{data:order,error:orderError}=await db.from('mp_orders').select('status,fulfillment_method').eq('id',orderId).single();
  if(orderError){alert(orderError.message);return}
  if(order.fulfillment_method!=='delivery'||!['paid','processing','ready_for_pickup','out_for_delivery'].includes(String(order.status).toLowerCase())){alert('Delivery can only be assigned to an eligible delivery order after payment verification.');return}
  const{data:verifiedReceipt,error:paymentError}=await db.from('mp_payments').select('id').eq('order_id',orderId).eq('status','verified').limit(1).maybeSingle();
  if(paymentError){alert('Could not confirm payment status: '+paymentError.message);return}
  if(!verifiedReceipt){alert('No verified customer payment receipt exists. Do not assign delivery yet.');return}
- const{error}=await db.from('mp_delivery_assignments').upsert({order_id:orderId,provider_name:name,provider_phone:phone,fee_etb:fee,status:'assigned',updated_at:new Date().toISOString()},{onConflict:'order_id'});
- if(error){alert('Could not save delivery assignment: '+error.message);return}
+ const{data:existing,error:existingError}=await db.from('mp_delivery_assignments').select('id,status').eq('order_id',orderId).maybeSingle();
+ if(existingError){alert('Could not check the existing delivery assignment: '+existingError.message);return}
+ const assignment={provider_name:name,provider_phone:phone,fee_etb:fee,updated_at:new Date().toISOString()};
+ const result=existing
+  ?await db.from('mp_delivery_assignments').update(assignment).eq('id',existing.id)
+  :await db.from('mp_delivery_assignments').insert({...assignment,order_id:orderId,status:'assigned'});
+ if(result.error){alert('Could not save delivery assignment: '+result.error.message);return}
  await loadAdminOrders();
 }
 async function updateDeliveryStatus(orderId,status){
@@ -130,17 +135,22 @@ async function updateDeliveryStatus(orderId,status){
  if(!['picked_up','delivered'].includes(status))return;
  const{data:order,error:orderError}=await db.from('mp_orders').select('status,fulfillment_method').eq('id',orderId).single();
  if(orderError){alert(orderError.message);return}
- if(order.fulfillment_method!=='delivery'||!['paid','processing','ready_for_pickup','out_for_delivery'].includes(String(order.status).toLowerCase())){alert('This order is not eligible for delivery status updates.');return}
+ const orderStatus=String(order.status||'').toLowerCase();
+ const allowedOrderStatuses=status==='picked_up'?['paid','processing','ready_for_pickup']:['out_for_delivery'];
+ if(order.fulfillment_method!=='delivery'||!allowedOrderStatuses.includes(orderStatus)){alert(status==='picked_up'?'Only a paid delivery order that has not yet gone out for delivery can be marked picked up.':'An order must be out for delivery before it can be marked delivered.');return}
  const{data:verifiedReceipt,error:paymentError}=await db.from('mp_payments').select('id').eq('order_id',orderId).eq('status','verified').limit(1).maybeSingle();
  if(paymentError){alert('Could not confirm payment status: '+paymentError.message);return}
  if(!verifiedReceipt){alert('No verified payment receipt exists. Delivery status was not changed.');return}
- const{data:a,error:findError}=await db.from('mp_delivery_assignments').select('id').eq('order_id',orderId).maybeSingle();
+ const{data:a,error:findError}=await db.from('mp_delivery_assignments').select('id,status').eq('order_id',orderId).maybeSingle();
  if(findError||!a){alert(findError?.message||'Save a delivery assignment first.');return}
+ const assignmentStatus=String(a.status||'').toLowerCase();
+ if(status==='picked_up'&&assignmentStatus!=='assigned'){alert('This assignment is not in the assigned state and cannot be marked picked up.');return}
+ if(status==='delivered'&&assignmentStatus!=='picked_up'){alert('Mark the delivery as picked up before marking it delivered.');return}
  const{error}=await db.from('mp_delivery_assignments').update({status,updated_at:new Date().toISOString()}).eq('id',a.id);
  if(error){alert('Could not update delivery status: '+error.message);return}
  const nextOrderStatus=status==='picked_up'?'out_for_delivery':'completed';
  const{error:e}=await db.from('mp_orders').update({status:nextOrderStatus,updated_at:new Date().toISOString()}).eq('id',orderId);
- if(e){alert('Delivery status saved, but order status could not be updated: '+e.message);return}
+ if(e){alert('Delivery status was saved, but order status could not be updated. Please contact admin before retrying: '+e.message);return}
  await loadAdminOrders();
 }
 
