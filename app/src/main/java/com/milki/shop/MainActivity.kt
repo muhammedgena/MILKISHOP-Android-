@@ -163,7 +163,14 @@ class MainActivity : Activity() {
         mainFrameFailed = false
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
-        webView.loadUrl(HOME_URL)
+        try {
+            val html = assets.open("index.html").bufferedReader(Charsets.UTF_8).use { it.readText() }
+            // Keep the production HTTPS origin so Supabase Auth, Storage and API CORS
+            // behave like the hosted website while the page itself is bundled in the APK.
+            webView.loadDataWithBaseURL(HOME_URL, html, "text/html", "UTF-8", HOME_URL)
+        } catch (_: Exception) {
+            showConnectionError()
+        }
     }
 
     private fun showConnectionError() {
