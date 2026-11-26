@@ -26,6 +26,9 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] An order without a verified customer receipt cannot be marked picked up or delivered.
 - [ ] Pickup orders do not show or require delivery assignment.
 - [ ] Marking a valid delivery as delivered updates the order to completed.
+- [ ] An assigned delivery cannot be marked delivered before it is marked picked up.
+- [ ] A delivery can only be marked picked up from an eligible paid order; it can only be marked delivered from out_for_delivery.
+- [ ] Editing an existing delivery provider or fee preserves its current assignment status.
 
 ## Regression and safety
 - [ ] Customer, seller, and admin access boundaries still work.
