@@ -28,7 +28,7 @@ begin
     raise exception 'Not authorized to review customer payments' using errcode = '42501';
   end if;
 
-  if p_status not in ('verified','rejected') then
+  if p_status is null or p_status not in ('verified','rejected') then
     raise exception 'Status must be verified or rejected' using errcode = '22023';
   end if;
 
