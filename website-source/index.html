@@ -89,17 +89,20 @@ async function setSellerStatus(id,status){if(!user||String(user.email||'').toLow
 async function loadAdminOrders(){
  if(!user||String(user.email||'').toLowerCase()!=='mohammedgena@gmail.com'){$('adminOrdersList').textContent='Administrator access required.';return}
  $('adminOrdersList').textContent='Loading orders…';
- const{data,error}=await db.from('mp_orders').select('id,order_code,status,fulfillment_method,delivery_address,customer_phone,subtotal_etb,created_at,mp_order_items(product_name,quantity),mp_sellers(business_name),mp_delivery_assignments(id,status,provider_name,provider_phone,fee_etb)').order('created_at',{ascending:false}).limit(50);
+ const{data,error}=await db.from('mp_orders').select('id,order_code,status,fulfillment_method,delivery_address,customer_phone,subtotal_etb,created_at,mp_order_items(product_name,quantity),mp_sellers(business_name),mp_delivery_assignments(id,status,provider_name,provider_phone,fee_etb),mp_payments(status,rejection_reason,transaction_reference)').order('created_at',{ascending:false}).limit(50);
  if(error){$('adminOrdersList').textContent='Could not load orders: '+error.message;return}
  if(!data?.length){$('adminOrdersList').textContent='No orders found.';return}
  const esc=v=>String(v??'—').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
  $('adminOrdersList').innerHTML=data.map(o=>{
   const a=Array.isArray(o.mp_delivery_assignments)?o.mp_delivery_assignments[0]:o.mp_delivery_assignments;
   const items=(o.mp_order_items||[]).map(i=>esc(i.product_name)+' × '+i.quantity).join(', ');
+  const paymentRows=Array.isArray(o.mp_payments)?o.mp_payments:(o.mp_payments?[o.mp_payments]:[]);
+  const latestPayment=paymentRows[0];
+  const paymentNotice=latestPayment?'<p><b>Payment receipt:</b> '+esc(latestPayment.status)+(latestPayment.status==='rejected'?' — <b>Do not treat this order as paid.</b> '+esc(latestPayment.rejection_reason||'No rejection reason recorded for this older receipt.'):'')+'</p>':'<p><b>Payment receipt:</b> No receipt recorded.</p>';
   const canAssign=['paid','processing','ready_for_pickup','out_for_delivery'].includes(String(o.status).toLowerCase())&&o.fulfillment_method==='delivery';
   const delivery=a?'<p><b>Delivery:</b> '+esc(a.status)+' · '+esc(a.provider_name)+' · '+esc(a.provider_phone)+' · Fee ETB '+Number(a.fee_etb||0).toLocaleString()+'</p>':'<p><b>Delivery:</b> Not assigned</p>';
   const controls=canAssign?'<div class="panel"><label>Delivery person / company</label><input id="dpn-'+o.id+'" value="'+esc(a?.provider_name||'')+'" placeholder="Name or company"><label>Delivery phone</label><input id="dpp-'+o.id+'" value="'+esc(a?.provider_phone||'')+'" placeholder="09…"><label>Delivery fee (ETB)</label><input id="dpf-'+o.id+'" type="number" min="0" step="1" value="'+Number(a?.fee_etb||0)+'"><button class="btn" data-save-delivery="'+o.id+'">Save Assignment</button>'+(a?'<button class="btn gold" data-delivery-status="'+o.id+'" data-status="picked_up">Mark Picked Up</button><button class="btn gold" data-delivery-status="'+o.id+'" data-status="delivered">Mark Delivered</button>':'')+'</div>':'<p class="muted">'+(o.fulfillment_method==='pickup'?'Pickup order — no delivery assignment needed.':String(o.status).toLowerCase()==='completed'?'Order completed. Review payment and delivery records; no assignment action is available.':String(o.status).toLowerCase()==='awaiting_payment'?'Payment is pending. Verify the payment before assigning delivery.':'No delivery assignment action is available for this order status.')+'</p>';
-  return '<div class="panel"><b>'+esc(o.order_code)+'</b> · <b>'+esc(o.status)+'</b><p>ETB '+Number(o.subtotal_etb||0).toLocaleString()+' · '+esc(o.fulfillment_method)+' · '+esc(o.mp_sellers?.business_name||'Seller')+'</p><p>'+items+'</p><p>Customer: '+esc(o.customer_phone)+'<br>Address: '+esc(o.delivery_address)+'</p>'+delivery+controls+'</div>';
+  return '<div class="panel"><b>'+esc(o.order_code)+'</b> · <b>'+esc(o.status)+'</b><p>ETB '+Number(o.subtotal_etb||0).toLocaleString()+' · '+esc(o.fulfillment_method)+' · '+esc(o.mp_sellers?.business_name||'Seller')+'</p>'+paymentNotice+'<p>'+items+'</p><p>Customer: '+esc(o.customer_phone)+'<br>Address: '+esc(o.delivery_address)+'</p>'+delivery+controls+'</div>';
  }).join('');
  document.querySelectorAll('[data-save-delivery]').forEach(b=>b.onclick=()=>saveDeliveryAssignment(b.dataset.saveDelivery));
  document.querySelectorAll('[data-delivery-status]').forEach(b=>b.onclick=()=>updateDeliveryStatus(b.dataset.deliveryStatus,b.dataset.status));
@@ -110,7 +113,10 @@ async function saveDeliveryAssignment(orderId){
  if(!name||!phone||!Number.isFinite(fee)||fee<0){alert('Enter delivery name, phone, and a valid fee.');return}
  const{data:order,error:orderError}=await db.from('mp_orders').select('status,fulfillment_method').eq('id',orderId).single();
  if(orderError){alert(orderError.message);return}
- if(order.fulfillment_method!=='delivery'||!['paid','processing','ready_for_pickup','out_for_delivery'].includes(String(order.status).toLowerCase())){alert('Delivery can only be assigned after payment is verified.');return}
+ if(order.fulfillment_method!=='delivery'||!['paid','processing','ready_for_pickup','out_for_delivery'].includes(String(order.status).toLowerCase())){alert('Delivery can only be assigned to an eligible delivery order after payment verification.');return}
+ const{data:verifiedReceipt,error:paymentError}=await db.from('mp_payments').select('id').eq('order_id',orderId).eq('status','verified').limit(1).maybeSingle();
+ if(paymentError){alert('Could not confirm payment status: '+paymentError.message);return}
+ if(!verifiedReceipt){alert('No verified customer payment receipt exists. Do not assign delivery yet.');return}
  const{error}=await db.from('mp_delivery_assignments').upsert({order_id:orderId,provider_name:name,provider_phone:phone,fee_etb:fee,status:'assigned',updated_at:new Date().toISOString()},{onConflict:'order_id'});
  if(error){alert('Could not save delivery assignment: '+error.message);return}
  await loadAdminOrders();
@@ -118,6 +124,12 @@ async function saveDeliveryAssignment(orderId){
 async function updateDeliveryStatus(orderId,status){
  if(!user||String(user.email||'').toLowerCase()!=='mohammedgena@gmail.com')return;
  if(!['picked_up','delivered'].includes(status))return;
+ const{data:order,error:orderError}=await db.from('mp_orders').select('status,fulfillment_method').eq('id',orderId).single();
+ if(orderError){alert(orderError.message);return}
+ if(order.fulfillment_method!=='delivery'||!['paid','processing','ready_for_pickup','out_for_delivery'].includes(String(order.status).toLowerCase())){alert('This order is not eligible for delivery status updates.');return}
+ const{data:verifiedReceipt,error:paymentError}=await db.from('mp_payments').select('id').eq('order_id',orderId).eq('status','verified').limit(1).maybeSingle();
+ if(paymentError){alert('Could not confirm payment status: '+paymentError.message);return}
+ if(!verifiedReceipt){alert('No verified payment receipt exists. Delivery status was not changed.');return}
  const{data:a,error:findError}=await db.from('mp_delivery_assignments').select('id').eq('order_id',orderId).maybeSingle();
  if(findError||!a){alert(findError?.message||'Save a delivery assignment first.');return}
  const{error}=await db.from('mp_delivery_assignments').update({status,updated_at:new Date().toISOString()}).eq('id',a.id);
