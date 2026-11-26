@@ -1,0 +1,34 @@
+# MILKISHOP workflow test checklist
+
+Run in a non-production Supabase project and Vercel preview only. Do not use real transfers or alter production order history.
+
+## Customer payment receipts
+- [ ] Admin rejects a receipt with a 9-character reason: the UI refuses it.
+- [ ] Admin rejects a receipt with a 10–500 character reason: status and reason are saved.
+- [ ] Admin receipt list displays the saved reason.
+- [ ] The customer who owns the order sees the rejection reason in order history.
+- [ ] Existing rejected receipts with no reason show the legacy fallback; no reason is fabricated.
+- [ ] A valid verified receipt changes an awaiting-payment order to paid.
+- [ ] Placeholder transaction references cannot be verified.
+
+## Seller commission
+- [ ] Seller commission due excludes orders without a verified customer receipt.
+- [ ] A completed order with a rejected receipt is excluded from commission due.
+- [ ] Commission rates are read from each order's stored commission_rate, not a hardcoded display value.
+- [ ] Verified seller commission receipts reduce the outstanding balance.
+- [ ] Rejecting a seller commission receipt requires a 10–500 character reason.
+- [ ] Seller and admin views display the saved rejection reason.
+
+## Delivery
+- [ ] Awaiting-payment delivery order cannot receive a delivery assignment.
+- [ ] An order with no verified customer receipt cannot receive a delivery assignment.
+- [ ] An order with a verified customer receipt can receive a delivery assignment.
+- [ ] An order without a verified customer receipt cannot be marked picked up or delivered.
+- [ ] Pickup orders do not show or require delivery assignment.
+- [ ] Marking a valid delivery as delivered updates the order to completed.
+
+## Regression and safety
+- [ ] Customer, seller, and admin access boundaries still work.
+- [ ] Receipt files remain private and open only through signed URLs.
+- [ ] No real payment is initiated by these workflows.
+- [ ] Production order/payment records remain unchanged during testing.
