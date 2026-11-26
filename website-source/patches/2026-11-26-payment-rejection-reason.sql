@@ -77,8 +77,8 @@ begin
          or lower(trim(v_payment.transaction_reference)) in ('reference','txn_reference','txn reference','test','demo','123456')) then
       raise exception 'A valid transaction reference is required' using errcode = '22023';
     end if;
-    if v_payment.amount_etb <> v_order.subtotal_etb then
-      raise exception 'Payment amount does not match the order subtotal' using errcode = '22023';
+    if v_payment.amount_etb <> (v_order.subtotal_etb + coalesce(v_order.delivery_fee_etb, 0)) then
+      raise exception 'Payment amount does not match the order total (subtotal plus delivery fee)' using errcode = '22023';
     end if;
   end if;
 
