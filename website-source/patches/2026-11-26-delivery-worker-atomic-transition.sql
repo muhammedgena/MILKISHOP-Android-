@@ -16,6 +16,7 @@ declare
   v_assignment public.mp_delivery_assignments%rowtype;
   v_order public.mp_orders%rowtype;
   v_order_code text;
+  v_order_id uuid;
 begin
   if auth.uid() is null then
     raise exception 'Authentication required' using errcode = '42501';
@@ -40,7 +41,7 @@ begin
   -- Read the order key, then lock order before assignment. All admin/worker
   -- delivery RPCs use this lock order to avoid cross-path deadlocks.
   select order_id
-    into v_order.id
+    into v_order_id
   from public.mp_delivery_assignments
   where id = p_assignment_id
     and delivery_user_id = v_user_id;
@@ -52,7 +53,7 @@ begin
   select *
     into v_order
   from public.mp_orders
-  where id = v_order.id
+  where id = v_order_id
   for update;
 
   if not found then
