@@ -40,3 +40,16 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Receipt files remain private and open only through signed URLs.
 - [ ] No real payment is initiated by these workflows.
 - [ ] Production order/payment records remain unchanged during testing.
+
+## Administrator delivery RPC (draft migration)
+- [ ] Apply `2026-11-26-admin-delivery-atomic-rpcs.sql` only to a non-production database.
+- [ ] Confirm unauthenticated and non-admin users cannot call either admin delivery RPC.
+- [ ] Confirm a pickup order, unpaid order, or order without a verified customer receipt cannot be assigned.
+- [ ] Confirm invalid provider name, phone, and negative/fractional fee are rejected by the database.
+- [ ] Confirm assigning a new delivery creates exactly one assignment; editing an assigned delivery updates provider details without creating a duplicate.
+- [ ] Confirm a picked-up or delivered assignment cannot be reassigned.
+- [ ] Confirm pickup transition changes assignment to `picked_up` and order to `out_for_delivery` atomically.
+- [ ] Confirm delivered transition changes assignment to `delivered` and order to `completed` atomically.
+- [ ] Confirm invalid, repeated, and out-of-order transitions fail without changing either table.
+- [ ] Simulate a failure during the transition and verify both rows roll back together.
+- [ ] Confirm the admin page uses only the RPCs for assignment and status writes (no direct table updates).
