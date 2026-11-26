@@ -55,7 +55,7 @@ class MainActivity : Activity() {
             settings.loadsImagesAutomatically = true
             settings.javaScriptCanOpenWindowsAutomatically = false
             settings.allowFileAccess = false
-            settings.allowContentAccess = false
+            settings.allowContentAccess = true
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             CookieManager.getInstance().setAcceptCookie(true)
             webViewClient = createWebViewClient()
