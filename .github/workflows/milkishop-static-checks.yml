@@ -1,0 +1,64 @@
+name: MILKISHOP static checks
+
+on:
+  pull_request:
+    paths:
+      - "website-source/**"
+      - ".github/workflows/milkishop-static-checks.yml"
+  push:
+    branches:
+      - main
+      - fix/admin-order-status-message
+    paths:
+      - "website-source/**"
+      - ".github/workflows/milkishop-static-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: Check website JavaScript syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Extract and syntax-check the website module
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class ModuleExtractor(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.in_module = False
+                  self.parts = []
+                  self.found = 0
+
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() == "script" and dict(attrs).get("type", "").lower() == "module":
+                      self.in_module = True
+                      self.found += 1
+
+              def handle_endtag(self, tag):
+                  if tag.lower() == "script" and self.in_module:
+                      self.in_module = False
+
+              def handle_data(self, data):
+                  if self.in_module:
+                      self.parts.append(data)
+
+          source = Path("website-source/index.html").read_text(encoding="utf-8")
+          parser = ModuleExtractor()
+          parser.feed(source)
+          if parser.found != 1:
+              raise SystemExit(f"Expected exactly one inline module script; found {parser.found}")
+          Path("/tmp/milkishop-inline-module.mjs").write_text("".join(parser.parts), encoding="utf-8")
+          PY
+          node --check /tmp/milkishop-inline-module.mjs
