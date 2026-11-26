@@ -37,13 +37,13 @@ begin
     raise exception 'Invalid delivery status' using errcode = '22023';
   end if;
 
-  -- Lock the assignment and order so concurrent requests cannot split the transition.
-  select *
-    into v_assignment
+  -- Read the order key, then lock order before assignment. All admin/worker
+  -- delivery RPCs use this lock order to avoid cross-path deadlocks.
+  select order_id
+    into v_order.id
   from public.mp_delivery_assignments
   where id = p_assignment_id
-    and delivery_user_id = v_user_id
-  for update;
+    and delivery_user_id = v_user_id;
 
   if not found then
     raise exception 'Delivery assignment not found' using errcode = 'P0002';
@@ -52,11 +52,22 @@ begin
   select *
     into v_order
   from public.mp_orders
-  where id = v_assignment.order_id
+  where id = v_order.id
   for update;
 
   if not found then
     raise exception 'Order not found' using errcode = 'P0002';
+  end if;
+
+  select *
+    into v_assignment
+  from public.mp_delivery_assignments
+  where id = p_assignment_id
+    and delivery_user_id = v_user_id
+  for update;
+
+  if not found or v_assignment.order_id <> v_order.id then
+    raise exception 'Delivery assignment changed; refresh and try again' using errcode = '40001';
   end if;
 
   if v_order.fulfillment_method <> 'delivery' then
