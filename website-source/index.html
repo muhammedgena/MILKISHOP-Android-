@@ -64,13 +64,18 @@ async function loadOrders(){
  if(error||data?.error){$('ordersList').textContent=error?.message||data.error;return}
  const orders=data.orders||[];
  const paymentByOrder={};
+ let paymentHistoryWarning='';
  if(orders.length){
-  const{data:receipts}=await db.from('mp_payments').select('order_id,status,rejection_reason,created_at').in('order_id',orders.map(o=>o.id)).order('created_at',{ascending:false});
-  (receipts||[]).forEach(p=>{if(!paymentByOrder[p.order_id])paymentByOrder[p.order_id]=p});
+  const{data:receipts,error:receiptError}=await db.from('mp_payments').select('order_id,status,rejection_reason,created_at').in('order_id',orders.map(o=>o.id)).order('created_at',{ascending:false});
+  if(receiptError){
+   paymentHistoryWarning='Payment receipt history could not be loaded: '+receiptError.message+'. Please contact support if you need a receipt status update.';
+  }else{
+   (receipts||[]).forEach(p=>{if(!paymentByOrder[p.order_id])paymentByOrder[p.order_id]=p});
+  }
  }
  const esc=v=>String(v??'—').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
  const statusLabel=s=>({'awaiting_payment':'Awaiting payment','paid':'Payment confirmed','processing':'Preparing order','ready_for_pickup':'Ready','out_for_delivery':'Out for delivery','completed':'Delivered / completed','cancelled':'Cancelled'}[String(s||'').toLowerCase()]||String(s||'Pending').replaceAll('_',' '));
- $('ordersList').innerHTML=orders.length?orders.map(o=>{
+ $('ordersList').innerHTML=(paymentHistoryWarning?'<div class="notice err">'+esc(paymentHistoryWarning)+'</div>':'')+(orders.length?orders.map(o=>{
   const d=Array.isArray(o.mp_delivery_assignments)?o.mp_delivery_assignments[0]:o.mp_delivery_assignments;
   const items=(o.mp_order_items||[]).map(i=>esc(i.product_name)+' × '+Number(i.quantity||0)).join(', ');
   const delivery=o.fulfillment_method==='delivery'
@@ -79,7 +84,7 @@ async function loadOrders(){
   const payment=paymentByOrder[o.id];
   const paymentNotice=payment?.status==='rejected'?'<p><b>Payment receipt rejected:</b> '+esc(payment.rejection_reason||'Please contact support; no rejection reason was recorded for this older receipt.')+'</p>':'';
   return '<div class="panel"><b>'+esc(o.order_code)+'</b> · <b>'+esc(statusLabel(o.status))+'</b><p>ETB '+Number(o.subtotal_etb||0).toLocaleString()+' · '+esc(o.fulfillment_method)+'</p><p>'+items+'</p><p>Delivery address: '+esc(o.delivery_address)+'</p>'+delivery+paymentNotice+'</div>';
- }).join(''):'No orders yet.';
+ }).join(''):'No orders yet.');
 }$('refreshOrders').onclick=loadOrders;$('sellerSubmit').onclick=async()=>{if(!user){notice('sellerMsg','Please log in first.',true);show('account');return}let{data,error}=await db.functions.invoke('milki-web-seller-application',{body:{full_name:$('sname').value,phone:$('sphone').value,business_name:$('sbusiness').value,location:$('slocation').value,preferred_language:$('slang').value,description:$('sdesc').value}});if(error||data?.error)notice('sellerMsg',error?.message||data.error,true);else notice('sellerMsg','Application submitted. Status: PENDING until admin approval.')};
 
 async function syncAdminAccess(){const isAdmin=!!user&&String(user.email||'').toLowerCase()==='mohammedgena@gmail.com';$('adminTab').classList.toggle('hide',!isAdmin);if(!isAdmin&&$('admin'))$('admin').classList.add('hide')}
