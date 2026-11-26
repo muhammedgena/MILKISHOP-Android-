@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
 import android.util.TypedValue
@@ -15,6 +16,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.ValueCallback
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -25,12 +27,14 @@ class MainActivity : Activity() {
 
     companion object {
         private const val HOME_URL = "https://milki-marketplace-admin.vercel.app/"
+        private const val FILE_CHOOSER_REQUEST_CODE = 1001
     }
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var errorPanel: LinearLayout
     private var mainFrameFailed = false
+    private var uploadCallback: ValueCallback<Array<Uri>>? = null
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
@@ -60,6 +64,24 @@ class MainActivity : Activity() {
                     progressBar.progress = newProgress
                     progressBar.visibility =
                         if (newProgress in 1..99 && !mainFrameFailed) View.VISIBLE else View.GONE
+                }
+
+                override fun onShowFileChooser(
+                    view: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    if (filePathCallback == null || fileChooserParams == null) return false
+                    uploadCallback?.onReceiveValue(null)
+                    uploadCallback = filePathCallback
+                    return try {
+                        startActivityForResult(fileChooserParams.createIntent(), FILE_CHOOSER_REQUEST_CODE)
+                        true
+                    } catch (_: Exception) {
+                        uploadCallback = null
+                        filePathCallback.onReceiveValue(null)
+                        false
+                    }
                 }
             }
         }
@@ -179,6 +201,23 @@ class MainActivity : Activity() {
         errorPanel.visibility = View.VISIBLE
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+            val callback = uploadCallback
+            uploadCallback = null
+            callback?.onReceiveValue(
+                if (resultCode == Activity.RESULT_OK && data != null) {
+                    WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+                } else {
+                    null
+                }
+            )
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         if (::webView.isInitialized) webView.saveState(outState)
         super.onSaveInstanceState(outState)
@@ -194,6 +233,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        uploadCallback?.onReceiveValue(null)
+        uploadCallback = null
         if (::webView.isInitialized) {
             webView.stopLoading()
             webView.loadUrl("about:blank")
