@@ -9,6 +9,7 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] The customer who owns the order sees the rejection reason in order history.
 - [ ] Existing rejected receipts with no reason show the legacy fallback; no reason is fabricated.
 - [ ] A valid verified receipt changes an awaiting-payment order to paid.
+- [ ] A delivery order receipt must equal subtotal plus delivery fee; a subtotal-only amount is rejected when a delivery fee applies.
 - [ ] Placeholder transaction references cannot be verified.
 
 ## Seller commission
@@ -17,6 +18,8 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Commission rates are read from each order's stored commission_rate, not a hardcoded display value.
 - [ ] Verified seller commission receipts reduce the outstanding balance.
 - [ ] Rejecting a seller commission receipt requires a 10–500 character reason.
+- [ ] Commission receipt review uses the `mp_admin_review_commission_payment` RPC; direct client-side table updates are not used.
+- [ ] Unauthenticated and non-admin users cannot call the commission review RPC; repeated reviews of a final receipt are rejected.
 - [ ] Seller and admin views display the saved rejection reason.
 
 ## Delivery
@@ -32,6 +35,7 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Pickup orders do not show or require delivery assignment.
 - [ ] Marking a valid delivery as delivered updates the order to completed.
 - [ ] An assigned delivery cannot be marked delivered before it is marked picked up.
+- [ ] An order already out for delivery cannot have its provider or fee edited/reassigned through the admin form.
 - [ ] A delivery can only be marked picked up from an eligible paid order; it can only be marked delivered from out_for_delivery.
 - [ ] Editing an existing delivery provider or fee preserves its current assignment status.
 
