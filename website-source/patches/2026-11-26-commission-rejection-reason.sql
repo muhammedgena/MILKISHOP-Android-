@@ -39,7 +39,7 @@ begin
     alter table public.mp_commission_payments
       add constraint mp_commission_payments_rejected_reason_required
       check (
-        status <> 'rejected'
+        status is distinct from 'rejected'
         or (
           rejection_reason is not null
           and char_length(trim(rejection_reason)) between 10 and 500
