@@ -53,3 +53,4 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Confirm invalid, repeated, and out-of-order transitions fail without changing either table.
 - [ ] Simulate a failure during the transition and verify both rows roll back together.
 - [ ] Confirm the admin page uses only the RPCs for assignment and status writes (no direct table updates).
+- [ ] Confirm administrator and delivery-worker RPCs lock the order row before the assignment row and concurrent transitions cannot leave the two records out of sync.
