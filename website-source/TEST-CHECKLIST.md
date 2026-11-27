@@ -58,3 +58,14 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Simulate a failure during the transition and verify both rows roll back together.
 - [ ] Confirm the admin page uses only the RPCs for assignment and status writes (no direct table updates).
 - [ ] Confirm administrator and delivery-worker RPCs lock the order row before the assignment row and concurrent transitions cannot leave the two records out of sync.
+
+## Delivery-worker administrator approval (draft migration)
+- [ ] Apply `2026-11-27-delivery-worker-admin-approval.sql` only in a non-production database.
+- [ ] New delivery-worker registrations create inactive profiles and return `pending_approval`.
+- [ ] Re-registering an existing inactive worker cannot reactivate the profile.
+- [ ] Re-registering an already-approved worker preserves the active state without changing it.
+- [ ] An inactive worker cannot list, claim, or update delivery jobs.
+- [ ] Only the configured administrator can activate or deactivate a delivery profile through `mp_admin_set_delivery_worker_status`.
+- [ ] Unauthenticated and non-admin users cannot call the approval RPC.
+- [ ] Confirm existing active delivery profiles are deactivated by the migration and require explicit review/re-approval.
+- [ ] Confirm no order, payment, assignment, or customer data is changed by this migration.
