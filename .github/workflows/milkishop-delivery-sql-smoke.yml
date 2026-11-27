@@ -1,0 +1,55 @@
+name: MILKISHOP delivery SQL smoke test
+
+on:
+  pull_request:
+    paths:
+      - "website-source/patches/**"
+      - "website-source/tests/**"
+      - ".github/workflows/milkishop-delivery-sql-smoke.yml"
+  push:
+    branches:
+      - main
+      - fix/admin-order-status-message
+    paths:
+      - "website-source/patches/**"
+      - "website-source/tests/**"
+      - ".github/workflows/milkishop-delivery-sql-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  delivery-sql-smoke:
+    name: Test delivery migrations on disposable PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: milkishop_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d milkishop_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Apply delivery migrations and run smoke tests
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: milkishop_test
+        run: |
+          psql --set ON_ERROR_STOP=1 --file website-source/tests/delivery-worker-approval-smoke.sql
