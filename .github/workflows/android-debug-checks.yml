@@ -1,0 +1,64 @@
+name: MILKISHOP Android debug verification
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - ".github/workflows/android-debug-checks.yml"
+  push:
+    branches:
+      - "app/**"
+    paths:
+      - "app/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - ".github/workflows/android-debug-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Android SDK
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          fi
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      - name: Verify debug APK
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+
+      - name: Upload debug APK for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: MILKISHOP-debug-v1.5
+          path: app/build/outputs/apk/debug/app-debug.apk
