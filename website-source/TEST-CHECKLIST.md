@@ -60,6 +60,9 @@ Run in a non-production Supabase project and Vercel preview only. Do not use rea
 - [ ] Confirm administrator and delivery-worker RPCs lock the order row before the assignment row and concurrent transitions cannot leave the two records out of sync.
 
 ## Delivery-worker administrator approval (draft migration)
+- [ ] Unapproved workers cannot discover or claim jobs; registration cannot self-activate a profile.
+- [ ] A job cannot appear in worker listings or be claimed unless a verified customer receipt exists.
+- [ ] Two workers claiming the same order concurrently result in exactly one assignment.
 - [ ] Apply `2026-11-27-delivery-worker-admin-approval.sql` only in a non-production database.
 - [ ] New delivery-worker registrations create inactive profiles and return `pending_approval`.
 - [ ] Re-registering an existing inactive worker cannot reactivate the profile.
